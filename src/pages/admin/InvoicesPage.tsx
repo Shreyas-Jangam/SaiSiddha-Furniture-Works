@@ -165,7 +165,7 @@ export default function InvoicesPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {sale.createdAt.toLocaleDateString('en-IN')}
+                      {(sale.createdAt instanceof Date ? sale.createdAt : new Date(sale.createdAt)).toLocaleDateString('en-IN')}
                     </TableCell>
                     <TableCell className="text-right font-medium">₹{sale.grandTotal.toLocaleString('en-IN')}</TableCell>
                     <TableCell className="text-right text-success">
@@ -226,7 +226,7 @@ export default function InvoicesPage() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Date</p>
-                  <p className="font-semibold text-foreground">{selectedSale.createdAt.toLocaleDateString('en-IN')}</p>
+                  <p className="font-semibold text-foreground">{(selectedSale.createdAt instanceof Date ? selectedSale.createdAt : new Date(selectedSale.createdAt)).toLocaleDateString('en-IN')}</p>
                 </div>
               </div>
 

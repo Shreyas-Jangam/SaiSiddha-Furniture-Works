@@ -50,6 +50,10 @@ export const generateInvoicePDF = (sale: Sale): void => {
   const margin = 14;
   const isGSTInvoice = sale.gstEnabled;
   const isInterState = sale.isInterState || false;
+  
+  // Ensure createdAt is a valid Date object
+  const saleDate = sale.createdAt instanceof Date ? sale.createdAt : new Date(sale.createdAt);
+  const formattedDate = saleDate.toLocaleDateString('en-IN');
 
   // ========== 1. GST INVOICE HEADER SECTION ==========
   doc.setTextColor(0, 0, 0);
@@ -66,12 +70,12 @@ export const generateInvoicePDF = (sale: Sale): void => {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.text(`Invoice No: ${sale.invoiceNumber}`, margin, 28);
-  doc.text(`Date: ${sale.createdAt.toLocaleDateString('en-IN')}`, pageWidth / 2, 28, { align: 'center' });
+  doc.text(`Date: ${formattedDate}`, pageWidth / 2, 28, { align: 'center' });
   
   if (isGSTInvoice && sale.placeOfSupply) {
     doc.text(`Place of Supply: ${sale.placeOfSupply}`, pageWidth - margin, 28, { align: 'right' });
   } else {
-    doc.text(`Date: ${sale.createdAt.toLocaleDateString('en-IN')}`, pageWidth - margin, 28, { align: 'right' });
+    doc.text(`Date: ${formattedDate}`, pageWidth - margin, 28, { align: 'right' });
   }
 
   // Divider line
