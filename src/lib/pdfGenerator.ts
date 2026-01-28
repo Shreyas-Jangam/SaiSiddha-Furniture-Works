@@ -447,11 +447,18 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   infoY += 5;
   
   const terms = [
-    '1. Payment within 20-30 days.  2. Delivery per confirmed PO.  3. Goods once sold not returnable.  4. Disputes: Ratnagiri jurisdiction.',
+    '1. Payment within 20-30 days.',
+    '2. Delivery per confirmed PO.',
+    '3. Goods once sold not returnable.',
+    '4. Disputes: Ratnagiri jurisdiction.',
   ];
-  const termsLines = doc.splitTextToSize(terms[0], contentWidth);
-  doc.text(termsLines, margin, infoY);
-  infoY += (termsLines.length - 1) * 4;
+  
+  terms.forEach((term) => {
+    doc.text(term, margin, infoY);
+    infoY += 5;
+  });
+  
+  infoY -= 1; // Adjust spacing after terms
 
   // GST Declaration
   if (isGSTInvoice) {
