@@ -3,73 +3,14 @@ import autoTable from 'jspdf-autotable';
 import { Sale, BUSINESS_INFO } from '@/types';
 import logoJpeg from '@/assets/logo.jpeg';
 
-// Convert number to words (Indian format)
-const numberToWords = (num: number): string => {
-  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
-    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-  const convertLessThanThousand = (n: number): string => {
-    if (n === 0) return '';
-    if (n < 20) return ones[n];
-    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + ones[n % 10] : '');
-    return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + convertLessThanThousand(n % 100) : '');
-  };
-
-  if (num === 0) return 'Zero';
-
-  const crore = Math.floor(num / 10000000);
-  const lakh = Math.floor((num % 10000000) / 100000);
-  const thousand = Math.floor((num % 100000) / 1000);
-  const hundred = Math.floor(num % 1000);
-  const paise = Math.round((num % 1) * 100);
-
-  let result = '';
-  if (crore > 0) result += convertLessThanThousand(crore) + ' Crore ';
-  if (lakh > 0) result += convertLessThanThousand(lakh) + ' Lakh ';
-  if (thousand > 0) result += convertLessThanThousand(thousand) + ' Thousand ';
-  if (hundred > 0) result += convertLessThanThousand(hundred);
-
-  result = result.trim();
-  if (paise > 0) {
-    result += ' and ' + convertLessThanThousand(paise) + ' Paise';
-  }
-
-  return result + ' Only';
-};
-
-// Format currency in Indian format
-const formatCurrency = (amount: number): string => {
-  return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
-
-// Draw a styled box
-const drawBox = (doc: jsPDF, x: number, y: number, width: number, height: number, fillColor?: number[]) => {
-  if (fillColor) {
-    doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
-    doc.rect(x, y, width, height, 'F');
-  }
-  doc.setDrawColor(60, 60, 60);
-  doc.setLineWidth(0.3);
-  doc.rect(x, y, width, height);
-};
-
-// Load image as base64
-const loadImageAsBase64 = async (url: string): Promise<string> => {
-  // Use fetch->blob->FileReader to avoid canvas/CORS-taint issues and to work reliably in production builds.
-  const res = await fetch(url, { cache: 'force-cache' });
-  if (!res.ok) throw new Error(`Failed to fetch image (${res.status})`);
-  const blob = await res.blob();
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Failed to read image blob'));
-    reader.readAsDataURL(blob);
-  });
-};
+import { ensurePdfFonts } from '@/lib/pdf/fonts';
+import { drawBox, fitTextRight, formatCurrency, loadImageAsBase64, numberToWords } from '@/lib/pdf/utils';
 
 export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  await ensurePdfFonts(doc);
+  doc.setFont('NotoSans', 'normal');
+
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
@@ -109,11 +50,11 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   const headerTextX = margin + 30;
   doc.setTextColor(...primaryColor);
   doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('NotoSans', 'bold');
   doc.text(BUSINESS_INFO.name, headerTextX, yPos + 8);
 
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('NotoSans', 'normal');
   doc.setTextColor(50, 50, 50);
   const taglineShort = BUSINESS_INFO.tagline.length > 85 ? BUSINESS_INFO.tagline.substring(0, 85) + '...' : BUSINESS_INFO.tagline;
   doc.text(taglineShort, headerTextX, yPos + 14);
@@ -128,12 +69,12 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(13);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('NotoSans', 'bold');
   const invoiceTitle = isGSTInvoice ? 'TAX INVOICE' : 'INVOICE';
   doc.text(invoiceTitle, invoiceBoxX + invoiceBoxWidth / 2, yPos + 10, { align: 'center' });
   
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('NotoSans', 'normal');
   doc.text(`#${sale.invoiceNumber}`, invoiceBoxX + invoiceBoxWidth / 2, yPos + 17, { align: 'center' });
   doc.setFontSize(8);
   doc.text(formattedDate, invoiceBoxX + invoiceBoxWidth / 2, yPos + 23, { align: 'center' });
@@ -154,7 +95,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   drawBox(doc, margin, yPos, halfWidth, boxHeight, [...lightBg]);
   
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('NotoSans', 'bold');
   doc.setTextColor(...primaryColor);
   doc.text('FROM:', margin + 4, yPos + 7);
   
@@ -163,7 +104,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   doc.text(BUSINESS_INFO.name, margin + 4, yPos + 14);
   
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('NotoSans', 'normal');
   doc.setTextColor(60, 60, 60);
   doc.text(BUSINESS_INFO.location, margin + 4, yPos + 20);
   
@@ -181,7 +122,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   drawBox(doc, buyerBoxX, yPos, halfWidth, boxHeight, [...lightBg]);
   
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('NotoSans', 'bold');
   doc.setTextColor(...primaryColor);
   doc.text('BILL TO:', buyerBoxX + 4, yPos + 7);
   
@@ -191,7 +132,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   doc.text(customerName.length > 30 ? customerName.substring(0, 30) + '...' : customerName, buyerBoxX + 4, yPos + 14);
   
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('NotoSans', 'normal');
   doc.setTextColor(60, 60, 60);
   
   const addressLines = doc.splitTextToSize(sale.customer.address, halfWidth - 10);
@@ -218,7 +159,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   // Place of Supply (for GST)
   if (isGSTInvoice && sale.placeOfSupply) {
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('NotoSans', 'bold');
     doc.setTextColor(...primaryColor);
     doc.text(`Place of Supply: ${sale.placeOfSupply}`, margin, yPos);
     doc.text(`Supply Type: ${isInterState ? 'Inter-State' : 'Intra-State'}`, pageWidth - margin, yPos, { align: 'right' });
@@ -261,6 +202,13 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
     head: tableHeaders,
     body: tableData,
     theme: 'striped',
+    tableWidth: contentWidth,
+    styles: {
+      font: 'NotoSans',
+      overflow: 'linebreak',
+      cellPadding: 2,
+      valign: 'middle',
+    },
     headStyles: {
       fillColor: primaryColor,
       textColor: [255, 255, 255],
@@ -268,12 +216,12 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
       fontStyle: 'bold',
       halign: 'center',
       valign: 'middle',
-      cellPadding: 3,
+      cellPadding: 2,
     },
     bodyStyles: {
       fontSize: 9,
       textColor: [40, 40, 40],
-      cellPadding: 3,
+      cellPadding: 2,
       valign: 'middle',
     },
     alternateRowStyles: {
@@ -281,15 +229,24 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
     },
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 48 },
-      2: { cellWidth: 22, halign: 'center' },
-      3: { cellWidth: 14, halign: 'center' },
+      1: { cellWidth: 50 },
+      2: { cellWidth: 18, halign: 'center' },
+      3: { cellWidth: 12, halign: 'center' },
       4: { cellWidth: 18, halign: 'right' },
       5: { cellWidth: 20, halign: 'right' },
       6: { cellWidth: 24, halign: 'right' },
-      7: { cellWidth: 28, halign: 'right' },
+      7: { cellWidth: 24, halign: 'right' },
     },
     margin: { left: margin, right: margin },
+    didParseCell: (data) => {
+      // Prevent currency values from overflowing their cells
+      if (data.section === 'body' && (data.column.index === 6 || data.column.index === 7)) {
+        const txt = (data.cell.text || []).join('');
+        if (txt.length > 12) data.cell.styles.fontSize = 8;
+        if (txt.length > 16) data.cell.styles.fontSize = 7;
+        data.cell.styles.overflow = 'hidden';
+      }
+    },
   });
 
   // ========== SUMMARY SECTION ==========
@@ -306,11 +263,11 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   // Amount in Words Box
   drawBox(doc, margin, finalY, leftBoxWidth, 20, [...warmBg]);
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('NotoSans', 'bold');
   doc.setTextColor(...primaryColor);
   doc.text('Amount in Words:', margin + 4, finalY + 6);
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('NotoSans', 'normal');
   doc.setTextColor(40, 40, 40);
   const amountInWords = `Rupees ${numberToWords(Math.floor(sale.grandTotal))}`;
   const wordsLines = doc.splitTextToSize(amountInWords, leftBoxWidth - 10);
@@ -331,12 +288,12 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   let summaryY = finalY + 8;
 
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('NotoSans', 'normal');
   doc.setTextColor(60, 60, 60);
 
   // Subtotal
   doc.text('Subtotal:', labelX, summaryY);
-  doc.text(formatCurrency(sale.subtotal), valueX, summaryY, { align: 'right' });
+  fitTextRight(doc, formatCurrency(sale.subtotal), valueX, summaryY, rightBoxWidth - 10);
   summaryY += 8;
 
   // GST Breakdown
@@ -346,22 +303,22 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
     
     if (isInterState) {
       doc.text(`IGST @ ${gstRate}%:`, labelX, summaryY);
-      doc.text(formatCurrency(sale.igstAmount || sale.gstAmount), valueX, summaryY, { align: 'right' });
+      fitTextRight(doc, formatCurrency(sale.igstAmount || sale.gstAmount), valueX, summaryY, rightBoxWidth - 10);
       summaryY += 8;
     } else {
       const halfGst = (sale.gstAmount / 2);
       doc.text(`CGST @ ${halfRate}%:`, labelX, summaryY);
-      doc.text(formatCurrency(sale.cgstAmount || halfGst), valueX, summaryY, { align: 'right' });
+      fitTextRight(doc, formatCurrency(sale.cgstAmount || halfGst), valueX, summaryY, rightBoxWidth - 10);
       summaryY += 8;
       
       doc.text(`SGST @ ${halfRate}%:`, labelX, summaryY);
-      doc.text(formatCurrency(sale.sgstAmount || halfGst), valueX, summaryY, { align: 'right' });
+      fitTextRight(doc, formatCurrency(sale.sgstAmount || halfGst), valueX, summaryY, rightBoxWidth - 10);
       summaryY += 8;
     }
   } else if (sale.gstEnabled && sale.gstAmount > 0) {
     const displayRate = sale.gstRate || 18;
     doc.text(`GST (${displayRate}%):`, labelX, summaryY);
-    doc.text(formatCurrency(sale.gstAmount), valueX, summaryY, { align: 'right' });
+    fitTextRight(doc, formatCurrency(sale.gstAmount), valueX, summaryY, rightBoxWidth - 10);
     summaryY += 8;
   }
 
@@ -372,7 +329,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
       transportLabel += ` (${sale.vehicleNumber})`;
     }
     doc.text(`${transportLabel}:`, labelX, summaryY);
-    doc.text(formatCurrency(sale.transportAmount), valueX, summaryY, { align: 'right' });
+    fitTextRight(doc, formatCurrency(sale.transportAmount), valueX, summaryY, rightBoxWidth - 10);
     summaryY += 8;
   }
 
@@ -386,22 +343,22 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   doc.setFillColor(...primaryColor);
   doc.rect(rightBoxX + 2, summaryY - 3, rightBoxWidth - 4, 11, 'F');
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('NotoSans', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(255, 255, 255);
   doc.text('GRAND TOTAL:', labelX + 2, summaryY + 4);
-  doc.text(formatCurrency(sale.grandTotal), valueX - 2, summaryY + 4, { align: 'right' });
+  fitTextRight(doc, formatCurrency(sale.grandTotal), valueX - 2, summaryY + 4, rightBoxWidth - 12, { baseFontSize: 9, minFontSize: 7 });
   summaryY += 14;
 
   doc.setTextColor(60, 60, 60);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('NotoSans', 'normal');
   doc.setFontSize(8);
 
   // Advance/Paid/Balance
   if (sale.advanceAmount > 0) {
     doc.text('Advance Paid:', labelX, summaryY);
     doc.setTextColor(34, 139, 34);
-    doc.text(`- ${formatCurrency(sale.advanceAmount)}`, valueX, summaryY, { align: 'right' });
+    fitTextRight(doc, `- ${formatCurrency(sale.advanceAmount)}`, valueX, summaryY, rightBoxWidth - 10);
     doc.setTextColor(60, 60, 60);
     summaryY += 8;
   }
@@ -409,20 +366,20 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   if (sale.amountPaid > 0) {
     doc.text('Amount Paid:', labelX, summaryY);
     doc.setTextColor(34, 139, 34);
-    doc.text(`- ${formatCurrency(sale.amountPaid)}`, valueX, summaryY, { align: 'right' });
+    fitTextRight(doc, `- ${formatCurrency(sale.amountPaid)}`, valueX, summaryY, rightBoxWidth - 10);
     doc.setTextColor(60, 60, 60);
     summaryY += 8;
   }
 
   if (sale.balanceDue > 0) {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('NotoSans', 'bold');
     doc.setTextColor(180, 0, 0);
     doc.text('BALANCE DUE:', labelX, summaryY);
-    doc.text(formatCurrency(sale.balanceDue), valueX, summaryY, { align: 'right' });
+    fitTextRight(doc, formatCurrency(sale.balanceDue), valueX, summaryY, rightBoxWidth - 10, { baseFontSize: 8, minFontSize: 7 });
     summaryY += 6;
     
     if (sale.expectedPaymentDate) {
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('NotoSans', 'normal');
       doc.setFontSize(7);
       const dueDate = sale.expectedPaymentDate instanceof Date 
         ? sale.expectedPaymentDate 
@@ -439,11 +396,11 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
     drawBox(doc, margin, infoY, leftBoxWidth, 28, [...lightBg]);
     
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('NotoSans', 'bold');
     doc.setTextColor(...primaryColor);
     doc.text('Bank Details:', margin + 4, infoY + 6);
     
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('NotoSans', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(60, 60, 60);
     doc.text(`Bank: ${BUSINESS_INFO.bankName}`, margin + 4, infoY + 12);
@@ -457,11 +414,11 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
 
   // Payment Info
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('NotoSans', 'bold');
   doc.setTextColor(...primaryColor);
   doc.text('Payment:', margin, infoY);
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('NotoSans', 'normal');
   doc.setTextColor(60, 60, 60);
   const paymentTypeText = sale.paymentMode === 'full' ? 'Full Payment' : 
                           sale.paymentMode === 'partial' ? 'Partial Payment' : 
@@ -472,11 +429,11 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   infoY += 10;
   
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('NotoSans', 'bold');
   doc.setTextColor(...primaryColor);
   doc.text('Terms & Conditions:', margin, infoY);
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('NotoSans', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(55, 55, 55);
   infoY += 5;
@@ -484,13 +441,15 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   const terms = [
     '1. Payment within 20-30 days.  2. Delivery per confirmed PO.  3. Goods once sold not returnable.  4. Disputes: Ratnagiri jurisdiction.',
   ];
-  doc.text(terms[0], margin, infoY);
+  const termsLines = doc.splitTextToSize(terms[0], contentWidth);
+  doc.text(termsLines, margin, infoY);
+  infoY += (termsLines.length - 1) * 4;
 
   // GST Declaration
   if (isGSTInvoice) {
     infoY += 6;
     doc.setFontSize(7);
-    doc.setFont('helvetica', 'italic');
+    doc.setFont('NotoSans', 'normal');
     doc.setTextColor(100, 100, 100);
     doc.text('Certified that particulars are true & correct. Tax on reverse charge: No.', margin, infoY);
   }
@@ -505,7 +464,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
 
   // Quote
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'italic');
+  doc.setFont('NotoSans', 'normal');
   doc.setTextColor(...primaryColor);
   doc.text('"Price is forgotten, quality is remembered."', pageWidth / 2, footerY - 12, { align: 'center' });
 
@@ -517,7 +476,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   // PAN (if GST invoice)
   if (isGSTInvoice && BUSINESS_INFO.pan) {
     doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('NotoSans', 'normal');
     doc.setTextColor(80, 80, 80);
     doc.text(`PAN: ${BUSINESS_INFO.pan}`, margin, footerY);
   }
@@ -529,7 +488,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   // Authorized Signatory (Left)
   doc.line(margin, footerY + 12, margin + 45, footerY + 12);
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('NotoSans', 'normal');
   doc.setTextColor(60, 60, 60);
   doc.text('Authorized Signatory', margin, footerY + 17);
   doc.setFontSize(6);
