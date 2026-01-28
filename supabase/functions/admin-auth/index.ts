@@ -14,7 +14,11 @@ const ALLOWED_ORIGINS = [
 // Get CORS headers with origin validation
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const isAllowed = origin && ALLOWED_ORIGINS.some(allowed => 
-    origin === allowed || origin.endsWith('.lovable.app') || origin.endsWith('.lovableproject.com')
+    origin === allowed || 
+    origin.endsWith('.lovable.app') || 
+    origin.endsWith('.lovableproject.com') ||
+    origin.endsWith('.vercel.app') ||  // Allow Vercel preview deployments
+    origin.includes('.vercel.app')      // Allow all Vercel subdomains
   );
   
   return {
