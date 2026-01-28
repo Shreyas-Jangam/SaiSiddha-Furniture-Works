@@ -118,13 +118,17 @@ export const fitTextRight = (
   opts?: { baseFontSize?: number; minFontSize?: number }
 ) => {
   const baseFontSize = opts?.baseFontSize ?? doc.getFontSize();
-  const minFontSize = opts?.minFontSize ?? 6;
+  const minFontSize = opts?.minFontSize ?? 5.5;
   const prevSize = doc.getFontSize();
+  const prevFont = doc.getFont();
   let size = baseFontSize;
 
+  // Ensure we're using NotoSans for proper rupee symbol rendering
+  doc.setFont('NotoSans', prevFont.fontStyle);
   doc.setFontSize(size);
+  
   while (size > minFontSize && doc.getTextWidth(text) > maxWidth) {
-    size = Math.max(minFontSize, size - 0.5);
+    size = Math.max(minFontSize, size - 0.3);
     doc.setFontSize(size);
   }
 
