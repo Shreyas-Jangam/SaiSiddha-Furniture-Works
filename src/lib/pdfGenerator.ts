@@ -453,12 +453,14 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
     '4. Disputes: Ratnagiri jurisdiction.',
   ];
   
+  // Use leftBoxWidth to prevent overlap with summary box
   terms.forEach((term) => {
-    doc.text(term, margin, infoY);
-    infoY += 5;
+    const termLines = doc.splitTextToSize(term, leftBoxWidth - 8);
+    doc.text(termLines, margin, infoY);
+    infoY += termLines.length * 4 + 1;
   });
   
-  infoY -= 1; // Adjust spacing after terms
+  infoY += 2; // Add some spacing after terms
 
   // GST Declaration
   if (isGSTInvoice) {
@@ -466,7 +468,10 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
     doc.setFontSize(7);
     doc.setFont('NotoSans', 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text('Certified that particulars are true & correct. Tax on reverse charge: No.', margin, infoY);
+    const gstDeclaration = 'Certified that particulars are true & correct. Tax on reverse charge: No.';
+    const gstLines = doc.splitTextToSize(gstDeclaration, leftBoxWidth - 8);
+    doc.text(gstLines, margin, infoY);
+    infoY += gstLines.length * 4;
   }
 
   // ========== FOOTER ==========
