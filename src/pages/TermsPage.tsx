@@ -11,8 +11,6 @@ export default function TermsPage() {
     { text: 'Delivery schedule based on quantity & PO date', category: 'Delivery' },
     { text: 'Mail must include size, dimensions & required documents', category: 'Orders' },
     { text: 'Payment processing time: 20–30 days', category: 'Payment' },
-    { text: 'Goods once sold will not be taken back', category: 'Returns' },
-    { text: 'Any disputes subject to Ratnagiri jurisdiction', category: 'Legal' },
   ];
 
   return (

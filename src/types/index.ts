@@ -136,7 +136,7 @@ export const PAYMENT_METHODS: PaymentMethod[] = ['Banking', 'NEFT', 'RTGS', 'Cas
 export const BUSINESS_INFO = {
   name: 'Sai Siddha Furniture Work',
   owner: 'Mr. Pritam Nandgaonkar',
-  tagline: 'Manufacturers of all types of Industrial Wooden Pallets Including Jungle Wood, Pine Wood and Custom Options as per Requirements',
+  tagline: 'Manufacturers of all types of Industrial Wooden Pallets Including Jungle Wood and Custom Options as per Requirements',
   location: 'MIDC, Ratnagiri, Maharashtra, India',
   phone1: '9075700075',
   phone2: '9075000515',
