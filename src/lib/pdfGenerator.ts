@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, BUSINESS_INFO } from '@/types';
+import logoJpeg from '@/assets/logo.jpeg';
 
 // Convert number to words (Indian format)
 const numberToWords = (num: number): string => {
@@ -55,28 +56,20 @@ const drawBox = (doc: jsPDF, x: number, y: number, width: number, height: number
 
 // Load image as base64
 const loadImageAsBase64 = async (url: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/jpeg', 0.9));
-      } else {
-        reject(new Error('Could not get canvas context'));
-      }
-    };
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.src = url;
+  // Use fetch->blob->FileReader to avoid canvas/CORS-taint issues and to work reliably in production builds.
+  const res = await fetch(url, { cache: 'force-cache' });
+  if (!res.ok) throw new Error(`Failed to fetch image (${res.status})`);
+  const blob = await res.blob();
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to read image blob'));
+    reader.readAsDataURL(blob);
   });
 };
 
 export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
@@ -98,8 +91,8 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
 
   // Try to add Logo
   try {
-    const logoUrl = new URL('/src/assets/logo.jpeg', window.location.origin).href;
-    const logoBase64 = await loadImageAsBase64(logoUrl);
+    // Importing the asset ensures we get the correct built URL (works on Vercel, etc.)
+    const logoBase64 = await loadImageAsBase64(logoJpeg);
     doc.addImage(logoBase64, 'JPEG', margin, yPos, 26, 26);
   } catch (e) {
     console.warn('Could not load logo:', e);
@@ -119,9 +112,9 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   doc.setFont('helvetica', 'bold');
   doc.text(BUSINESS_INFO.name, headerTextX, yPos + 8);
 
-  doc.setFontSize(7);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(80, 80, 80);
+  doc.setTextColor(50, 50, 50);
   const taglineShort = BUSINESS_INFO.tagline.length > 85 ? BUSINESS_INFO.tagline.substring(0, 85) + '...' : BUSINESS_INFO.tagline;
   doc.text(taglineShort, headerTextX, yPos + 14);
   doc.text(`${BUSINESS_INFO.location} | Phone: ${BUSINESS_INFO.phone1}, ${BUSINESS_INFO.phone2}`, headerTextX, yPos + 19);
@@ -271,14 +264,14 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
     headStyles: {
       fillColor: primaryColor,
       textColor: [255, 255, 255],
-      fontSize: 8,
+      fontSize: 9,
       fontStyle: 'bold',
       halign: 'center',
       valign: 'middle',
       cellPadding: 3,
     },
     bodyStyles: {
-      fontSize: 8,
+      fontSize: 9,
       textColor: [40, 40, 40],
       cellPadding: 3,
       valign: 'middle',
@@ -484,8 +477,8 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   doc.text('Terms & Conditions:', margin, infoY);
   
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(80, 80, 80);
+  doc.setFontSize(8);
+  doc.setTextColor(55, 55, 55);
   infoY += 5;
   
   const terms = [
@@ -496,7 +489,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   // GST Declaration
   if (isGSTInvoice) {
     infoY += 6;
-    doc.setFontSize(6);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100, 100, 100);
     doc.text('Certified that particulars are true & correct. Tax on reverse charge: No.', margin, infoY);
