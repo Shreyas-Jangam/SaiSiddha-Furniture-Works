@@ -450,8 +450,9 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   termsY += 5;
   
   const terms = [
-    '1. Payment within 20-30 days.',
-    '2. Delivery per confirmed PO.',
+    '1. Delivery schedule based on quantity & PO date',
+    '2. Mail must include size, dimensions & required documents',
+    '3. Payment processing time: 20–30 days',
   ];
   
   // Use leftBoxWidth to prevent overlap with summary box
