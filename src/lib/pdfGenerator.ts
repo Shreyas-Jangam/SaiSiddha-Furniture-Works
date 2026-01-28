@@ -452,8 +452,6 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   const terms = [
     '1. Payment within 20-30 days.',
     '2. Delivery per confirmed PO.',
-    '3. Goods once sold not returnable.',
-    '4. Disputes: Ratnagiri jurisdiction.',
   ];
   
   // Use leftBoxWidth to prevent overlap with summary box
