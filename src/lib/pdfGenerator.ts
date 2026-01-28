@@ -167,7 +167,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   }
 
   // ========== PRODUCT TABLE ==========
-  const tableHeaders = isGSTInvoice 
+  const tableHeaders = isGSTInvoice
     ? [['#', 'Product Description', 'HSN', 'Qty', 'CFT/Pc', 'Total CFT', 'Rate/Pc', 'Amount']]
     : [['#', 'Product Description', 'Wood Type', 'Qty', 'CFT/Pc', 'Total CFT', 'Rate/Pc', 'Amount']];
 
@@ -181,8 +181,8 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
         item.quantity.toString(),
         item.cftPerPiece.toFixed(3),
         item.totalCft.toFixed(3),
-        formatCurrency(item.pricePerPiece),
-        formatCurrency(item.amount),
+        `₹${item.pricePerPiece.toFixed(2)}`,
+        `₹${item.amount.toFixed(2)}`,
       ];
     }
     return [
@@ -192,8 +192,8 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
       item.quantity.toString(),
       item.cftPerPiece.toFixed(3),
       item.totalCft.toFixed(3),
-      formatCurrency(item.pricePerPiece),
-      formatCurrency(item.amount),
+      `₹${item.pricePerPiece.toFixed(2)}`,
+      `₹${item.amount.toFixed(2)}`,
     ];
   });
 
@@ -208,18 +208,19 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
       overflow: 'linebreak',
       cellPadding: 2,
       valign: 'middle',
+      fontSize: 8,
     },
     headStyles: {
       fillColor: primaryColor,
       textColor: [255, 255, 255],
-      fontSize: 9,
+      fontSize: 8,
       fontStyle: 'bold',
       halign: 'center',
       valign: 'middle',
       cellPadding: 2,
     },
     bodyStyles: {
-      fontSize: 9,
+      fontSize: 8,
       textColor: [40, 40, 40],
       cellPadding: 2,
       valign: 'middle',
@@ -228,23 +229,29 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
       fillColor: lightBg,
     },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 50 },
-      2: { cellWidth: 18, halign: 'center' },
-      3: { cellWidth: 12, halign: 'center' },
-      4: { cellWidth: 18, halign: 'right' },
-      5: { cellWidth: 20, halign: 'right' },
-      6: { cellWidth: 24, halign: 'right' },
-      7: { cellWidth: 24, halign: 'right' },
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 52, overflow: 'linebreak' },
+      2: { cellWidth: 16, halign: 'center', overflow: 'linebreak' },
+      3: { cellWidth: 10, halign: 'center' },
+      4: { cellWidth: 16, halign: 'right' },
+      5: { cellWidth: 18, halign: 'right' },
+      6: { cellWidth: 26, halign: 'right', overflow: 'linebreak' },
+      7: { cellWidth: 30, halign: 'right', overflow: 'linebreak' },
     },
     margin: { left: margin, right: margin },
     didParseCell: (data) => {
-      // Prevent currency values from overflowing their cells
+      // Ensure currency values fit properly
       if (data.section === 'body' && (data.column.index === 6 || data.column.index === 7)) {
+        data.cell.styles.overflow = 'linebreak';
+        data.cell.styles.fontSize = 8;
         const txt = (data.cell.text || []).join('');
-        if (txt.length > 12) data.cell.styles.fontSize = 8;
-        if (txt.length > 16) data.cell.styles.fontSize = 7;
-        data.cell.styles.overflow = 'hidden';
+        // Reduce font size for very long amounts
+        if (txt.length > 14) {
+          data.cell.styles.fontSize = 7;
+        }
+        if (txt.length > 18) {
+          data.cell.styles.fontSize = 6.5;
+        }
       }
     },
   });
@@ -269,7 +276,8 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   
   doc.setFont('NotoSans', 'normal');
   doc.setTextColor(40, 40, 40);
-  const amountInWords = `Rupees ${numberToWords(Math.floor(sale.grandTotal))}`;
+  doc.setFontSize(7.5);
+  const amountInWords = `₹ ${numberToWords(Math.floor(sale.grandTotal))}`;
   const wordsLines = doc.splitTextToSize(amountInWords, leftBoxWidth - 10);
   doc.text(wordsLines.slice(0, 2), margin + 4, finalY + 12);
 
@@ -293,7 +301,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
 
   // Subtotal
   doc.text('Subtotal:', labelX, summaryY);
-  fitTextRight(doc, formatCurrency(sale.subtotal), valueX, summaryY, rightBoxWidth - 10);
+  fitTextRight(doc, `₹${sale.subtotal.toFixed(2)}`, valueX, summaryY, rightBoxWidth - 10);
   summaryY += 8;
 
   // GST Breakdown
@@ -303,22 +311,22 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
     
     if (isInterState) {
       doc.text(`IGST @ ${gstRate}%:`, labelX, summaryY);
-      fitTextRight(doc, formatCurrency(sale.igstAmount || sale.gstAmount), valueX, summaryY, rightBoxWidth - 10);
+      fitTextRight(doc, `₹${(sale.igstAmount || sale.gstAmount).toFixed(2)}`, valueX, summaryY, rightBoxWidth - 10);
       summaryY += 8;
     } else {
       const halfGst = (sale.gstAmount / 2);
       doc.text(`CGST @ ${halfRate}%:`, labelX, summaryY);
-      fitTextRight(doc, formatCurrency(sale.cgstAmount || halfGst), valueX, summaryY, rightBoxWidth - 10);
+      fitTextRight(doc, `₹${(sale.cgstAmount || halfGst).toFixed(2)}`, valueX, summaryY, rightBoxWidth - 10);
       summaryY += 8;
       
       doc.text(`SGST @ ${halfRate}%:`, labelX, summaryY);
-      fitTextRight(doc, formatCurrency(sale.sgstAmount || halfGst), valueX, summaryY, rightBoxWidth - 10);
+      fitTextRight(doc, `₹${(sale.sgstAmount || halfGst).toFixed(2)}`, valueX, summaryY, rightBoxWidth - 10);
       summaryY += 8;
     }
   } else if (sale.gstEnabled && sale.gstAmount > 0) {
     const displayRate = sale.gstRate || 18;
     doc.text(`GST (${displayRate}%):`, labelX, summaryY);
-    fitTextRight(doc, formatCurrency(sale.gstAmount), valueX, summaryY, rightBoxWidth - 10);
+    fitTextRight(doc, `₹${sale.gstAmount.toFixed(2)}`, valueX, summaryY, rightBoxWidth - 10);
     summaryY += 8;
   }
 
@@ -329,7 +337,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
       transportLabel += ` (${sale.vehicleNumber})`;
     }
     doc.text(`${transportLabel}:`, labelX, summaryY);
-    fitTextRight(doc, formatCurrency(sale.transportAmount), valueX, summaryY, rightBoxWidth - 10);
+    fitTextRight(doc, `₹${sale.transportAmount.toFixed(2)}`, valueX, summaryY, rightBoxWidth - 10);
     summaryY += 8;
   }
 
@@ -347,7 +355,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   doc.setFontSize(9);
   doc.setTextColor(255, 255, 255);
   doc.text('GRAND TOTAL:', labelX + 2, summaryY + 4);
-  fitTextRight(doc, formatCurrency(sale.grandTotal), valueX - 2, summaryY + 4, rightBoxWidth - 12, { baseFontSize: 9, minFontSize: 7 });
+  fitTextRight(doc, `₹${sale.grandTotal.toFixed(2)}`, valueX - 2, summaryY + 4, rightBoxWidth - 12, { baseFontSize: 9, minFontSize: 6.5 });
   summaryY += 14;
 
   doc.setTextColor(60, 60, 60);
@@ -358,7 +366,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   if (sale.advanceAmount > 0) {
     doc.text('Advance Paid:', labelX, summaryY);
     doc.setTextColor(34, 139, 34);
-    fitTextRight(doc, `- ${formatCurrency(sale.advanceAmount)}`, valueX, summaryY, rightBoxWidth - 10);
+    fitTextRight(doc, `- ₹${sale.advanceAmount.toFixed(2)}`, valueX, summaryY, rightBoxWidth - 10);
     doc.setTextColor(60, 60, 60);
     summaryY += 8;
   }
@@ -366,7 +374,7 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   if (sale.amountPaid > 0) {
     doc.text('Amount Paid:', labelX, summaryY);
     doc.setTextColor(34, 139, 34);
-    fitTextRight(doc, `- ${formatCurrency(sale.amountPaid)}`, valueX, summaryY, rightBoxWidth - 10);
+    fitTextRight(doc, `- ₹${sale.amountPaid.toFixed(2)}`, valueX, summaryY, rightBoxWidth - 10);
     doc.setTextColor(60, 60, 60);
     summaryY += 8;
   }
@@ -375,14 +383,14 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
     doc.setFont('NotoSans', 'bold');
     doc.setTextColor(180, 0, 0);
     doc.text('BALANCE DUE:', labelX, summaryY);
-    fitTextRight(doc, formatCurrency(sale.balanceDue), valueX, summaryY, rightBoxWidth - 10, { baseFontSize: 8, minFontSize: 7 });
+    fitTextRight(doc, `₹${sale.balanceDue.toFixed(2)}`, valueX, summaryY, rightBoxWidth - 10, { baseFontSize: 8, minFontSize: 6.5 });
     summaryY += 6;
     
     if (sale.expectedPaymentDate) {
       doc.setFont('NotoSans', 'normal');
       doc.setFontSize(7);
-      const dueDate = sale.expectedPaymentDate instanceof Date 
-        ? sale.expectedPaymentDate 
+      const dueDate = sale.expectedPaymentDate instanceof Date
+        ? sale.expectedPaymentDate
         : new Date(sale.expectedPaymentDate);
       doc.text(`Due: ${dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, labelX, summaryY);
     }
