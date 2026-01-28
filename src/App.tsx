@@ -17,6 +17,7 @@ import CFTCalculatorPage from "./pages/admin/CFTCalculatorPage";
 import InvoicesPage from "./pages/admin/InvoicesPage";
 import PendingPaymentsPage from "./pages/admin/PendingPaymentsPage";
 import RevenuePage from "./pages/admin/RevenuePage";
+import QuotationsPage from "./pages/admin/QuotationsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,6 +73,11 @@ const App = () => (
             <Route path="/admin/revenue" element={
               <ProtectedAdminRoute>
                 <RevenuePage />
+              </ProtectedAdminRoute>
+            } />
+            <Route path="/admin/quotations" element={
+              <ProtectedAdminRoute>
+                <QuotationsPage />
               </ProtectedAdminRoute>
             } />
             

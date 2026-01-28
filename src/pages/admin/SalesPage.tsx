@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -19,7 +26,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, Trash2, ShoppingCart } from 'lucide-react';
+import { Plus, Trash2, ShoppingCart, CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Product, Customer, SaleItem, PaymentMode, PaymentMethod, PAYMENT_METHODS } from '@/types';
 import { getProducts, saveSale } from '@/lib/storage';
 import { generateInvoicePDF } from '@/lib/pdfGenerator';
@@ -42,13 +50,16 @@ export default function SalesPage() {
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   
   const [gstEnabled, setGstEnabled] = useState(false);
+  const [gstRate, setGstRate] = useState<12 | 18>(18);
   const [transportEnabled, setTransportEnabled] = useState(false);
   const [transportAmount, setTransportAmount] = useState(0);
+  const [vehicleNumber, setVehicleNumber] = useState('');
   
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('full');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Banking');
   const [amountPaid, setAmountPaid] = useState(0);
   const [advanceAmount, setAdvanceAmount] = useState(0);
+  const [expectedPaymentDate, setExpectedPaymentDate] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
     setProducts(getProducts());
@@ -60,12 +71,15 @@ export default function SalesPage() {
     setSelectedProductId('');
     setSelectedQuantity(1);
     setGstEnabled(false);
+    setGstRate(18);
     setTransportEnabled(false);
     setTransportAmount(0);
+    setVehicleNumber('');
     setPaymentMode('full');
     setPaymentMethod('Banking');
     setAmountPaid(0);
     setAdvanceAmount(0);
+    setExpectedPaymentDate(undefined);
   };
 
   const handleAddItem = () => {
@@ -100,7 +114,7 @@ export default function SalesPage() {
         productId: product.id,
         productName: product.name,
         woodType: product.woodType,
-        dimensions: `${product.length}" × ${product.width}" × ${product.height}"`,
+        dimensions: `${product.length} × ${product.width} × ${product.height} mm`,
         quantity: selectedQuantity,
         cftPerPiece: product.cftPerPiece,
         totalCft: product.cftPerPiece * selectedQuantity,
@@ -119,13 +133,14 @@ export default function SalesPage() {
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const gstAmount = gstEnabled ? subtotal * 0.18 : 0;
+  const gstAmount = gstEnabled ? subtotal * (gstRate / 100) : 0;
   const grandTotal = subtotal + gstAmount + (transportEnabled ? transportAmount : 0);
 
   const calculateBalanceDue = () => {
     if (paymentMode === 'full') return 0;
     if (paymentMode === 'partial') return grandTotal - amountPaid;
     if (paymentMode === 'advance') return grandTotal - advanceAmount;
+    if (paymentMode === 'pending') return grandTotal;
     return grandTotal;
   };
 
@@ -149,19 +164,22 @@ export default function SalesPage() {
       subtotal,
       gstEnabled,
       gstAmount,
+      gstRate,
       transportEnabled,
       transportAmount: transportEnabled ? transportAmount : 0,
+      vehicleNumber: transportEnabled ? vehicleNumber : undefined,
       grandTotal,
       paymentMode,
       paymentMethod,
       amountPaid: paymentMode === 'full' ? grandTotal : paymentMode === 'partial' ? amountPaid : 0,
       advanceAmount: paymentMode === 'advance' ? advanceAmount : 0,
       balanceDue,
+      expectedPaymentDate: paymentMode === 'pending' ? expectedPaymentDate : undefined,
       status: balanceDue <= 0 ? 'Paid' : amountPaid > 0 || advanceAmount > 0 ? 'Partial' : 'Pending',
     });
 
     toast.success('Sale created successfully!');
-    generateInvoicePDF(sale);
+    generateInvoicePDF(sale).catch(err => console.error('PDF generation error:', err));
     
     setProducts(getProducts()); // Refresh products after stock deduction
     setIsDialogOpen(false);
@@ -320,7 +338,18 @@ export default function SalesPage() {
                       checked={gstEnabled}
                       onCheckedChange={(checked) => setGstEnabled(checked as boolean)}
                     />
-                    <Label htmlFor="gst" className="cursor-pointer">Add GST (18%)</Label>
+                    <Label htmlFor="gst" className="cursor-pointer">Add GST</Label>
+                    {gstEnabled && (
+                      <Select value={gstRate.toString()} onValueChange={(v) => setGstRate(parseInt(v) as 12 | 18)}>
+                        <SelectTrigger className="w-24">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="12">12%</SelectItem>
+                          <SelectItem value="18">18%</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   
                   <div className="flex items-center gap-4">
@@ -331,14 +360,23 @@ export default function SalesPage() {
                     />
                     <Label htmlFor="transport" className="cursor-pointer">Add Transport / Vehicle Bill</Label>
                     {transportEnabled && (
-                      <Input
-                        type="number"
-                        min="0"
-                        value={transportAmount || ''}
-                        onChange={(e) => setTransportAmount(parseFloat(e.target.value) || 0)}
-                        placeholder="Amount"
-                        className="w-32"
-                      />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Input
+                          type="text"
+                          value={vehicleNumber}
+                          onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                          placeholder="Vehicle No."
+                          className="w-36"
+                        />
+                        <Input
+                          type="number"
+                          min="0"
+                          value={transportAmount || ''}
+                          onChange={(e) => setTransportAmount(parseFloat(e.target.value) || 0)}
+                          placeholder="Amount (₹)"
+                          className="w-32"
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -358,10 +396,12 @@ export default function SalesPage() {
                         <SelectItem value="full">Full Payment</SelectItem>
                         <SelectItem value="partial">Partial Payment</SelectItem>
                         <SelectItem value="advance">Advance Payment</SelectItem>
+                        <SelectItem value="pending">Payment Yet to be Made</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
+                  {paymentMode !== 'pending' && (
                   <div className="space-y-2">
                     <Label>Payment Method</Label>
                     <Select value={paymentMethod} onValueChange={(v: PaymentMethod) => setPaymentMethod(v)}>
@@ -375,6 +415,7 @@ export default function SalesPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  )}
 
                   {paymentMode === 'partial' && (
                     <div className="space-y-2">
@@ -401,6 +442,36 @@ export default function SalesPage() {
                       />
                     </div>
                   )}
+
+                  {paymentMode === 'pending' && (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Expected Payment Date (Optional)</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !expectedPaymentDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {expectedPaymentDate ? format(expectedPaymentDate, "PPP") : <span>Select payment date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={expectedPaymentDate}
+                            onSelect={setExpectedPaymentDate}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -414,7 +485,7 @@ export default function SalesPage() {
                   </div>
                   {gstEnabled && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">GST (18%):</span>
+                      <span className="text-muted-foreground">GST ({gstRate}%):</span>
                       <span className="font-medium">₹{gstAmount.toFixed(2)}</span>
                     </div>
                   )}

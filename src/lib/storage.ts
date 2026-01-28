@@ -1,8 +1,9 @@
-import { Product, Sale, DashboardStats } from '@/types';
+import { Product, Sale, DashboardStats, Quotation } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const PRODUCTS_KEY = 'saisiddha_products';
 const SALES_KEY = 'saisiddha_sales';
+const QUOTATIONS_KEY = 'saisiddha_quotations';
 
 // Products
 export const getProducts = (): Product[] => {
@@ -18,7 +19,7 @@ export const getProducts = (): Product[] => {
 export const saveProduct = (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'cftPerPiece' | 'pricePerPiece' | 'status'>): Product => {
   const products = getProducts();
   const cftPerPiece = calculateCFT(product.length, product.width, product.height);
-  const pricePerPiece = cftPerPiece * product.pricePerCft;
+  const pricePerPiece = product.pricePerCft * 4;
   const status = getStockStatus(product.quantity, product.minOrderQuantity);
   
   const newProduct: Product = {
@@ -51,7 +52,7 @@ export const updateProduct = (id: string, updates: Partial<Product>): Product | 
       updatedProduct.width,
       updatedProduct.height
     );
-    updatedProduct.pricePerPiece = updatedProduct.cftPerPiece * updatedProduct.pricePerCft;
+    updatedProduct.pricePerPiece = updatedProduct.pricePerCft * 4;
   }
   
   // Update status based on quantity
@@ -79,6 +80,7 @@ export const getSales = (): Sale[] => {
   return JSON.parse(stored).map((s: any) => ({
     ...s,
     createdAt: new Date(s.createdAt),
+    expectedPaymentDate: s.expectedPaymentDate ? new Date(s.expectedPaymentDate) : undefined,
   }));
 };
 
@@ -129,8 +131,9 @@ export const updateSalePayment = (id: string, amountPaid: number): Sale | null =
 };
 
 // Utility functions
+// CFT calculation: L × W × H / 144
 export const calculateCFT = (length: number, width: number, height: number): number => {
-  return (length * width * height) / 1728;
+  return (length * width * height) / 144;
 };
 
 export const getStockStatus = (quantity: number, minOrder: number): Product['status'] => {
@@ -147,9 +150,60 @@ export const generateInvoiceNumber = (): string => {
   return `SSF${year}${month}${random}`;
 };
 
+// Quotations
+export const getQuotations = (): Quotation[] => {
+  const stored = localStorage.getItem(QUOTATIONS_KEY);
+  if (!stored) return [];
+  return JSON.parse(stored).map((q: any) => ({
+    ...q,
+    dateGiven: new Date(q.dateGiven),
+    dateOrderReceived: q.dateOrderReceived ? new Date(q.dateOrderReceived) : undefined,
+    createdAt: new Date(q.createdAt),
+  }));
+};
+
+export const saveQuotation = (quotation: Omit<Quotation, 'id' | 'createdAt' | 'status'>): Quotation => {
+  const quotations = getQuotations();
+  
+  const newQuotation: Quotation = {
+    ...quotation,
+    id: uuidv4(),
+    status: quotation.dateOrderReceived ? 'Received' : 'Pending',
+    createdAt: new Date(),
+  };
+  
+  quotations.push(newQuotation);
+  localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(quotations));
+  return newQuotation;
+};
+
+export const updateQuotation = (id: string, updates: Partial<Quotation>): Quotation | null => {
+  const quotations = getQuotations();
+  const index = quotations.findIndex(q => q.id === id);
+  if (index === -1) return null;
+  
+  const updatedQuotation = { ...quotations[index], ...updates };
+  if (updates.dateOrderReceived) {
+    updatedQuotation.status = 'Received';
+  }
+  
+  quotations[index] = updatedQuotation;
+  localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(quotations));
+  return updatedQuotation;
+};
+
+export const deleteQuotation = (id: string): boolean => {
+  const quotations = getQuotations();
+  const filtered = quotations.filter(q => q.id !== id);
+  if (filtered.length === quotations.length) return false;
+  localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(filtered));
+  return true;
+};
+
 export const getDashboardStats = (): DashboardStats => {
   const products = getProducts();
   const sales = getSales();
+  const quotations = getQuotations();
   
   return {
     totalProducts: products.length,
@@ -158,6 +212,8 @@ export const getDashboardStats = (): DashboardStats => {
     lowStockItems: products.filter(p => p.status === 'Low Stock' || p.status === 'Out of Stock').length,
     totalRevenue: sales.reduce((sum, s) => sum + s.amountPaid + s.advanceAmount, 0),
     pendingAmount: sales.reduce((sum, s) => sum + s.balanceDue, 0),
+    totalQuotations: quotations.length,
+    pendingQuotations: quotations.filter(q => q.status === 'Pending').length,
   };
 };
 
@@ -170,7 +226,12 @@ export const resetAllSales = (): void => {
   localStorage.removeItem(SALES_KEY);
 };
 
+export const resetAllQuotations = (): void => {
+  localStorage.removeItem(QUOTATIONS_KEY);
+};
+
 export const resetAllData = (): void => {
   localStorage.removeItem(PRODUCTS_KEY);
   localStorage.removeItem(SALES_KEY);
+  localStorage.removeItem(QUOTATIONS_KEY);
 };

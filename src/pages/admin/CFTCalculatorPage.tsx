@@ -36,14 +36,14 @@ export default function CFTCalculatorPage() {
             </div>
             <div>
               <h2 className="font-display text-lg font-bold text-foreground">CFT Calculator</h2>
-              <p className="text-sm text-muted-foreground">Formula: CFT = (L × W × H) ÷ 1728</p>
+              <p className="text-sm text-muted-foreground">Formula: CFT = (L × W × H) ÷ 144</p>
             </div>
           </div>
 
           <div className="space-y-6">
             {/* Dimensions */}
             <div>
-              <h3 className="font-semibold text-foreground mb-4">Dimensions (in inches)</h3>
+              <h3 className="font-semibold text-foreground mb-4">Dimensions (in mm)</h3>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="length">Length</Label>
@@ -159,8 +159,8 @@ export default function CFTCalculatorPage() {
           </p>
           <div className="p-3 rounded-lg bg-muted/50 text-sm">
             <p className="font-medium text-foreground mb-2">Formula:</p>
-            <code className="text-primary">CFT = (Length × Width × Height) ÷ 1728</code>
-            <p className="text-muted-foreground mt-2">Where dimensions are in inches and 1728 = 12³ (converts cubic inches to cubic feet)</p>
+            <code className="text-primary">CFT = (Length × Width × Height) ÷ 144</code>
+            <p className="text-muted-foreground mt-2">Where dimensions are in mm and 144 = 12² (converts to square feet equivalent)</p>
           </div>
         </div>
       </div>

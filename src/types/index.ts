@@ -55,7 +55,7 @@ export interface SaleItem {
   amount: number;
 }
 
-export type PaymentMode = 'full' | 'partial' | 'advance';
+export type PaymentMode = 'full' | 'partial' | 'advance' | 'pending';
 export type PaymentMethod = 'Banking' | 'NEFT' | 'RTGS' | 'Cash' | 'UPI';
 
 export interface Sale {
@@ -74,14 +74,26 @@ export interface Sale {
   placeOfSupply?: string;
   transportEnabled: boolean;
   transportAmount: number;
+  vehicleNumber?: string;
   grandTotal: number;
   paymentMode: PaymentMode;
   paymentMethod: PaymentMethod;
   amountPaid: number;
   advanceAmount: number;
   balanceDue: number;
+  expectedPaymentDate?: Date;
   createdAt: Date;
   status: 'Paid' | 'Partial' | 'Pending';
+}
+
+export interface Quotation {
+  id: string;
+  quotationName: string;
+  customerName: string;
+  dateGiven: Date;
+  dateOrderReceived?: Date;
+  status: 'Pending' | 'Received' | 'Expired';
+  createdAt: Date;
 }
 
 export interface DashboardStats {
@@ -91,6 +103,8 @@ export interface DashboardStats {
   lowStockItems: number;
   totalRevenue: number;
   pendingAmount: number;
+  totalQuotations: number;
+  pendingQuotations: number;
 }
 
 export const PRODUCT_CATEGORIES = [

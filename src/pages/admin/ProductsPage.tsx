@@ -151,7 +151,7 @@ export default function ProductsPage() {
   );
 
   const cftPreview = calculateCFT(formData.length, formData.width, formData.height);
-  const pricePreview = cftPreview * formData.pricePerCft;
+  const pricePreview = formData.pricePerCft * 4;
 
   const handleResetProducts = () => {
     resetAllProducts();
@@ -288,7 +288,7 @@ export default function ProductsPage() {
               </div>
 
               <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                <h4 className="font-semibold text-sm mb-3">Dimensions (in inches)</h4>
+                <h4 className="font-semibold text-sm mb-3">Dimensions (in mm)</h4>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="length">Length *</Label>
@@ -422,7 +422,7 @@ export default function ProductsPage() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{product.category}</TableCell>
                     <TableCell className="text-sm">
-                      {product.length}" × {product.width}" × {product.height}"
+                      {product.length} × {product.width} × {product.height} mm
                     </TableCell>
                     <TableCell className="text-right text-sm">{product.cftPerPiece.toFixed(3)}</TableCell>
                     <TableCell className="text-right font-medium">₹{product.pricePerPiece.toFixed(2)}</TableCell>

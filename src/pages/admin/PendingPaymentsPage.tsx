@@ -18,8 +18,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { FileText, CreditCard, Phone, Building2, RotateCcw } from 'lucide-react';
+import { FileText, CreditCard, Phone, Building2, RotateCcw, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { format, isPast, isToday } from 'date-fns';
 
 export default function PendingPaymentsPage() {
   const [pendingSales, setPendingSales] = useState<Sale[]>([]);
@@ -172,7 +173,7 @@ export default function PendingPaymentsPage() {
                     </div>
                   </div>
                   
-                  <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
+                  <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground">Total Amount</p>
                       <p className="font-semibold text-foreground">₹{sale.grandTotal.toLocaleString('en-IN')}</p>
@@ -185,6 +186,27 @@ export default function PendingPaymentsPage() {
                       <p className="text-muted-foreground">Balance Due</p>
                       <p className="font-semibold text-warning">₹{sale.balanceDue.toLocaleString('en-IN')}</p>
                     </div>
+                    {sale.expectedPaymentDate && (
+                      <div>
+                        <p className="text-muted-foreground">Due Date</p>
+                        <p className={`font-semibold flex items-center gap-1 ${
+                          isPast(sale.expectedPaymentDate) && !isToday(sale.expectedPaymentDate) 
+                            ? 'text-destructive' 
+                            : isToday(sale.expectedPaymentDate) 
+                              ? 'text-warning' 
+                              : 'text-foreground'
+                        }`}>
+                          <Calendar className="w-3 h-3" />
+                          {format(sale.expectedPaymentDate, 'dd MMM yyyy')}
+                          {isPast(sale.expectedPaymentDate) && !isToday(sale.expectedPaymentDate) && (
+                            <span className="text-xs">(Overdue)</span>
+                          )}
+                          {isToday(sale.expectedPaymentDate) && (
+                            <span className="text-xs">(Today)</span>
+                          )}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -192,7 +214,7 @@ export default function PendingPaymentsPage() {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => generateInvoicePDF(sale)}
+                    onClick={() => generateInvoicePDF(sale).catch(err => console.error('PDF error:', err))}
                   >
                     <FileText className="w-4 h-4 mr-1" />
                     Invoice

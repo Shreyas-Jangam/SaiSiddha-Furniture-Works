@@ -33,6 +33,7 @@ import {
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Products', href: '/admin/products', icon: Package },
+  { name: 'Quotations', href: '/admin/quotations', icon: FileText },
   { name: 'Sales', href: '/admin/sales', icon: ShoppingCart },
   { name: 'Invoices', href: '/admin/invoices', icon: FileText },
   { name: 'Revenue', href: '/admin/revenue', icon: TrendingUp },

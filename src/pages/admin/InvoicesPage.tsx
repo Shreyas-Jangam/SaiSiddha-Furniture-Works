@@ -21,10 +21,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Search, FileText, Download, Eye, RotateCcw } from 'lucide-react';
+import { Search, FileText, Download, Eye, RotateCcw, Calendar } from 'lucide-react';
 import { Sale } from '@/types';
 import { getSales, updateSalePayment, resetAllSales } from '@/lib/storage';
 import { generateInvoicePDF } from '@/lib/pdfGenerator';
+import { format, isPast, isToday } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -58,9 +59,14 @@ export default function InvoicesPage() {
     setIsDetailsOpen(true);
   };
 
-  const handleDownloadPDF = (sale: Sale) => {
-    generateInvoicePDF(sale);
-    toast.success('Invoice PDF downloaded!');
+  const handleDownloadPDF = async (sale: Sale) => {
+    try {
+      await generateInvoicePDF(sale);
+      toast.success('Invoice PDF generated!');
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      toast.error('Failed to generate PDF');
+    }
   };
 
   const handleUpdatePayment = (sale: Sale, amount: number) => {
@@ -262,7 +268,7 @@ export default function InvoicesPage() {
                 </div>
                 {selectedSale.gstEnabled && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">GST (18%):</span>
+                    <span className="text-muted-foreground">GST ({selectedSale.gstRate || 18}%):</span>
                     <span>₹{selectedSale.gstAmount.toFixed(2)}</span>
                   </div>
                 )}
@@ -296,6 +302,24 @@ export default function InvoicesPage() {
                   <div className="flex justify-between font-semibold text-destructive">
                     <span>Balance Due:</span>
                     <span>₹{selectedSale.balanceDue.toFixed(2)}</span>
+                  </div>
+                )}
+                {selectedSale.expectedPaymentDate && selectedSale.balanceDue > 0 && (
+                  <div className={`flex justify-between text-sm items-center ${
+                    isPast(selectedSale.expectedPaymentDate) && !isToday(selectedSale.expectedPaymentDate)
+                      ? 'text-destructive'
+                      : isToday(selectedSale.expectedPaymentDate)
+                        ? 'text-warning'
+                        : 'text-muted-foreground'
+                  }`}>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" /> Payment Due:
+                    </span>
+                    <span className="font-medium">
+                      {format(selectedSale.expectedPaymentDate, 'dd MMM yyyy')}
+                      {isPast(selectedSale.expectedPaymentDate) && !isToday(selectedSale.expectedPaymentDate) && ' (Overdue)'}
+                      {isToday(selectedSale.expectedPaymentDate) && ' (Today)'}
+                    </span>
                   </div>
                 )}
               </div>

@@ -1,43 +1,43 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import bcrypt from "https://esm.sh/bcryptjs@2.4.3";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Allowed origins for CORS - restrict to known domains
+const ALLOWED_ORIGINS = [
+  'https://ggjljustbsrnkaaxgzab.supabase.co',
+  'https://id-preview--09a60c66-9fad-43ad-b530-9dd8c79a1426.lovable.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+];
 
-// HARDCODED ADMIN CREDENTIALS - Password is bcrypt hashed
-// Original password: SaiSiddha@333_SaiSiddha@333
-const ADMIN_USERNAME = "SaiSiddha333";
-// bcrypt hash of the password (cost factor 12)
-const ADMIN_PASSWORD_HASH = "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4EdAEPQO0M.BnIm.";
+// Get CORS headers with origin validation
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const isAllowed = origin && ALLOWED_ORIGINS.some(allowed => 
+    origin === allowed || origin.endsWith('.lovable.app') || origin.endsWith('.lovableproject.com')
+  );
+  
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Credentials': 'true',
+  };
+}
 
 // Session settings
 const SESSION_DURATION_MINUTES = 30;
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 15;
 
-// Simple bcrypt verification using Web Crypto
+// Verify password using bcrypt
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  // For security, we use a timing-safe comparison approach
-  // Since we can't use bcrypt directly in Deno edge functions easily,
-  // we'll use a custom verification with the known hash
-  
-  // The password is: SaiSiddha@333_SaiSiddha@333
-  // We verify by checking if the provided password matches exactly
-  const expectedPassword = "SaiSiddha@333_SaiSiddha@333";
-  
-  if (password.length !== expectedPassword.length) {
+  try {
+    // Supabase Edge Runtime doesn't support Web Workers; use bcryptjs (pure JS) instead.
+    return bcrypt.compareSync(password, hash);
+  } catch (error) {
+    console.error('Bcrypt comparison error:', error);
     return false;
   }
-  
-  // Timing-safe comparison
-  let result = 0;
-  for (let i = 0; i < password.length; i++) {
-    result |= password.charCodeAt(i) ^ expectedPassword.charCodeAt(i);
-  }
-  
-  return result === 0;
 }
 
 // Generate secure session token
@@ -48,6 +48,9 @@ async function generateSessionToken(): Promise<string> {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
+  
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -56,6 +59,18 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Get admin credentials from environment variables
+    const adminUsername = Deno.env.get('ADMIN_USERNAME');
+    const adminPasswordHash = Deno.env.get('ADMIN_PASSWORD_HASH');
+    
+    if (!adminUsername || !adminPasswordHash) {
+      console.error('Admin credentials not configured in environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
@@ -70,6 +85,21 @@ serve(async (req) => {
     // LOGIN ACTION
     if (action === 'login' && req.method === 'POST') {
       const { username, password } = await req.json();
+      
+      // Input validation
+      if (!username || typeof username !== 'string' || username.length > 100) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid username format' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (!password || typeof password !== 'string' || password.length > 200) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid password format' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       
       // Check for lockout due to too many failed attempts
       const fifteenMinutesAgo = new Date(Date.now() - LOCKOUT_DURATION_MINUTES * 60 * 1000).toISOString();
@@ -108,9 +138,9 @@ serve(async (req) => {
         );
       }
       
-      // Validate credentials
-      const usernameValid = username === ADMIN_USERNAME;
-      const passwordValid = await verifyPassword(password, ADMIN_PASSWORD_HASH);
+      // Validate credentials using environment variables and bcrypt
+      const usernameValid = username === adminUsername;
+      const passwordValid = await verifyPassword(password, adminPasswordHash);
       
       if (!usernameValid || !passwordValid) {
         // Log failed attempt
@@ -309,6 +339,7 @@ serve(async (req) => {
     
   } catch (error) {
     console.error('Admin auth error:', error);
+    const corsHeaders = getCorsHeaders(req.headers.get('origin'));
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
