@@ -434,17 +434,20 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   doc.text(`${paymentTypeText} via ${sale.paymentMethod}`, margin + 22, infoY);
 
   // ========== TERMS & CONDITIONS ==========
-  infoY += 10;
+  // Position Terms & Conditions well below the summary box to avoid overlap
+  // Calculate the bottom of the summary box and add extra spacing
+  const summaryBoxBottom = finalY + summaryHeight;
+  let termsY = Math.max(summaryBoxBottom + 25, infoY + 25);
   
   doc.setFontSize(8);
   doc.setFont('NotoSans', 'bold');
   doc.setTextColor(...primaryColor);
-  doc.text('Terms & Conditions:', margin, infoY);
+  doc.text('Terms & Conditions:', margin, termsY);
   
   doc.setFont('NotoSans', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(55, 55, 55);
-  infoY += 5;
+  termsY += 5;
   
   const terms = [
     '1. Payment within 20-30 days.',
@@ -456,23 +459,26 @@ export const generateInvoicePDF = async (sale: Sale): Promise<void> => {
   // Use leftBoxWidth to prevent overlap with summary box
   terms.forEach((term) => {
     const termLines = doc.splitTextToSize(term, leftBoxWidth - 8);
-    doc.text(termLines, margin, infoY);
-    infoY += termLines.length * 4 + 1;
+    doc.text(termLines, margin, termsY);
+    termsY += termLines.length * 4 + 1;
   });
   
-  infoY += 2; // Add some spacing after terms
+  termsY += 2; // Add some spacing after terms
 
   // GST Declaration
   if (isGSTInvoice) {
-    infoY += 6;
+    termsY += 6;
     doc.setFontSize(7);
     doc.setFont('NotoSans', 'normal');
     doc.setTextColor(100, 100, 100);
     const gstDeclaration = 'Certified that particulars are true & correct. Tax on reverse charge: No.';
     const gstLines = doc.splitTextToSize(gstDeclaration, leftBoxWidth - 8);
-    doc.text(gstLines, margin, infoY);
-    infoY += gstLines.length * 4;
+    doc.text(gstLines, margin, termsY);
+    termsY += gstLines.length * 4;
   }
+
+  // Update infoY to the end of terms section for footer positioning
+  infoY = termsY;
 
   // ========== FOOTER ==========
   const footerY = pageHeight - 28;
